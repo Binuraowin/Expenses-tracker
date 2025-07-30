@@ -2,14 +2,28 @@ import React, { useState, useMemo } from 'react';
 import { useExpenses } from '../../hooks/useExpenses';
 import { formatCurrency, formatDate } from '../../utils/dateUtils';
 import { EXPENSE_MAIN_CATEGORIES } from '../../utils/constants';
-import { DollarSign, Trash2, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { exportMonthlyDataToExcel } from '../../utils/excelExport';
+import { DollarSign, Trash2, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
 
 const ExpenseList = () => {
-  const { expenses, deleteExpense } = useExpenses();
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+const { expenses, deleteExpense } = useExpenses();
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [exporting, setExporting] = useState(false);
 
+
+  const handleExportToExcel = async () => {
+    setExporting(true);
+    try {
+      await exportMonthlyDataToExcel(expenses, selectedMonth);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Error exporting data. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
   // Filter expenses by selected month
   const filteredExpenses = useMemo(() => {
     return expenses.filter(expense => {
@@ -80,7 +94,7 @@ const ExpenseList = () => {
   return (
     <div className="space-y-6">
       {/* Month Navigation */}
-      <Card>
+     <Card>
         <div className="flex justify-between items-center">
           <Button
             onClick={() => navigateMonth('prev')}
@@ -100,18 +114,29 @@ const ExpenseList = () => {
             )}
           </div>
           
-          <Button
-            onClick={() => navigateMonth('next')}
-            variant="secondary"
-            size="sm"
-            disabled={selectedMonth >= new Date().toISOString().slice(0, 7)}
-          >
-            Next Month
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleExportToExcel}
+              variant="secondary"
+              size="sm"
+              disabled={exporting || sortedExpenses.length === 0}
+            >
+              <Download className={`w-4 h-4 mr-2 ${exporting ? 'animate-bounce' : ''}`} />
+              {exporting ? 'Exporting...' : 'Export Excel'}
+            </Button>
+            
+            <Button
+              onClick={() => navigateMonth('next')}
+              variant="secondary"
+              size="sm"
+              disabled={selectedMonth >= new Date().toISOString().slice(0, 7)}
+            >
+              Next Month
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
         </div>
       </Card>
-
       {/* Monthly Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-green-50">
