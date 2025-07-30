@@ -1,5 +1,4 @@
 import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
 import { EXPENSE_CATEGORIES } from './constants';
 
 export const exportMonthlyDataToExcel = (expenses, selectedMonth) => {

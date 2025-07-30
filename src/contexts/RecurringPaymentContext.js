@@ -1,4 +1,5 @@
-import React, { createContext, useState, useEffect, useMemo } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
+import { createContext, useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { recurringPaymentService } from '../services/recurringPayments';
 import { firestoreService } from '../services/firestore';

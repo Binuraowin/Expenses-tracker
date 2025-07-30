@@ -1,4 +1,3 @@
-import React from 'react';
 import { DollarSign, Calendar, PieChart, RefreshCw, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '../../utils/dateUtils';
 import Card from '../UI/Card';

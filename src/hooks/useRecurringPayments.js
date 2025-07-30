@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useContext, useEffect } from 'react';
 import { RecurringPaymentContext } from '../contexts/RecurringPaymentContext';
 
@@ -27,7 +28,7 @@ export const useRecurringPayments = () => {
       clearInterval(interval);
       clearTimeout(midnightTimeout);
     };
-  }, []); // Empty dependency array
+  }, []);
 
   return context;
 };

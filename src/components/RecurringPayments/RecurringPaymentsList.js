@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRecurringPayments } from '../../hooks/useRecurringPayments';
-import { EXPENSE_CATEGORIES, PAYMENT_STATUS } from '../../utils/constants';
+import { EXPENSE_CATEGORIES } from '../../utils/constants';
 import { CheckCircle, Clock, AlertTriangle, XCircle, Plus, Trash2, RefreshCw } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';

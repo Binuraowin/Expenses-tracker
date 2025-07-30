@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRecurringPayments } from '../../hooks/useRecurringPayments';
 import { EXPENSE_CATEGORIES } from '../../utils/constants';
 import Button from '../UI/Button';
@@ -39,8 +39,6 @@ const RecurringPaymentForm = ({ onClose }) => {
       ...(name === 'category' ? { subcategory: '' } : {})
     }));
   };
-
-  const selectedCategory = EXPENSE_CATEGORIES[formData.category];
 
   return (
     <Card>

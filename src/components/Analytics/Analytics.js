@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { PERIOD_OPTIONS } from '../../utils/constants';
 import { TrendingUp, DollarSign, Calendar, PieChart } from 'lucide-react';
-import SummaryCards from './SummaryCards';
 import ChartComponents from './ChartComponents';
 import Card from '../UI/Card';
 
