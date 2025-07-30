@@ -2,21 +2,25 @@ import React, { useState } from 'react';
 import ExpenseForm from '../components/Expenses/ExpenseForm';
 import ExpenseList from '../components/Expenses/ExpenseList';
 import Analytics from '../components/Analytics/Analytics';
-import { BarChart3, Plus, List } from 'lucide-react';
+import RecurringPaymentsList from '../components/RecurringPayments/RecurringPaymentsList';
+import { BarChart3, Plus, List, RefreshCw } from 'lucide-react';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'add', label: 'Add Expense', icon: Plus },
-    { id: 'list', label: 'Expense List', icon: List }
+    { id: 'recurring', label: 'Recurring Payments', icon: RefreshCw },
+    { id: 'add', label: 'Add Transaction', icon: Plus },
+    { id: 'list', label: 'All Transactions', icon: List }
   ];
 
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
         return <Analytics />;
+      case 'recurring':
+        return <RecurringPaymentsList />;
       case 'add':
         return (
           <div className="max-w-2xl mx-auto">
@@ -32,9 +36,15 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Personal Finance Manager</h1>
+        <p className="text-gray-600">Track expenses, manage recurring payments, and analyze your spending with the 50/30/20 rule</p>
+      </div>
+
       {/* Tab Navigation */}
       <div className="bg-white rounded-xl shadow-sm p-1">
-        <div className="flex space-x-1">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}

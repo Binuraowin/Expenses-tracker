@@ -1,6 +1,7 @@
 import React from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ExpenseProvider } from './contexts/ExpenseContext';
+import { RecurringPaymentProvider } from './contexts/RecurringPaymentContext';
 import { useAuth } from './hooks/useAuth';
 import LoginForm from './components/Auth/LoginForm';
 import Layout from './components/Layout/Layout';
@@ -24,9 +25,11 @@ function AppContent() {
 
   return (
     <ExpenseProvider>
-      <Layout>
-        <Dashboard />
-      </Layout>
+      <RecurringPaymentProvider>
+        <Layout>
+          <Dashboard />
+        </Layout>
+      </RecurringPaymentProvider>
     </ExpenseProvider>
   );
 }

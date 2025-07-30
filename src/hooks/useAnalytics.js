@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useExpenses } from './useExpenses';
-import { getDateRange, formatCurrency } from '../utils/dateUtils';
+import { getDateRange } from '../utils/dateUtils';
+import { EXPENSE_MAIN_CATEGORIES } from '../utils/constants';
 
 export const useAnalytics = (period = 7) => {
   const { expenses } = useExpenses();
@@ -13,54 +14,76 @@ export const useAnalytics = (period = 7) => {
       return expenseDate >= startDate && expenseDate <= endDate;
     });
 
-    const categoryTotals = filteredExpenses.reduce((acc, expense) => {
-      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+    // Separate income and expenses
+    const incomeTransactions = filteredExpenses.filter(expense => expense.type === 'income');
+    const expenseTransactions = filteredExpenses.filter(expense => expense.type === 'expense');
+
+    const totalIncome = incomeTransactions.reduce((sum, expense) => sum + expense.amount, 0);
+    const totalSpent = expenseTransactions.reduce((sum, expense) => sum + expense.amount, 0);
+    const netIncome = totalIncome - totalSpent;
+
+    // Category totals for budget analysis (NEEDS/WANTS/SAVINGS)
+    const categoryTotals = expenseTransactions.reduce((acc, expense) => {
+      const category = expense.category || 'WANTS';
+      acc[category] = (acc[category] || 0) + expense.amount;
       return acc;
     }, {});
 
-    const totalSpent = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     const avgDaily = totalSpent / period;
 
+    // Daily data for charts
     const dailyData = [];
     for (let i = period - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const dayExpenses = filteredExpenses.filter(expense => {
+      const dayExpenses = expenseTransactions.filter(expense => {
         const expenseDate = new Date(expense.date || expense.createdAt);
         return expenseDate.toDateString() === date.toDateString();
       });
-      const total = dayExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+      const dayIncome = incomeTransactions.filter(expense => {
+        const expenseDate = new Date(expense.date || expense.createdAt);
+        return expenseDate.toDateString() === date.toDateString();
+      });
+      
+      const totalExpense = dayExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+      const totalIncomeDay = dayIncome.reduce((sum, expense) => sum + expense.amount, 0);
+      
       dailyData.push({
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        amount: total
+        expenses: totalExpense,
+        income: totalIncomeDay,
+        net: totalIncomeDay - totalExpense
       });
     }
 
+    // Pie chart data for budget categories (only expenses)
     const pieData = Object.entries(categoryTotals).map(([category, amount]) => ({
-      name: category,
+      name: EXPENSE_MAIN_CATEGORIES.find(cat => cat.value === category)?.label || category,
       value: amount,
-      color: getCategoryColor(category)
-    }));
+      color: EXPENSE_MAIN_CATEGORIES.find(cat => cat.value === category)?.color || '#6b7280'
+    })).filter(item => item.value > 0);
+
+    // Budget analysis
+    const budgetAnalysis = {
+      needs: categoryTotals.NEEDS || 0,
+      wants: categoryTotals.WANTS || 0,
+      savings: categoryTotals.SAVINGS || 0,
+      income: totalIncome
+    };
 
     return {
       filteredExpenses,
       categoryTotals,
       totalSpent,
+      totalIncome,
+      netIncome,
       avgDaily,
       dailyData,
       pieData,
-      transactionCount: filteredExpenses.length
+      transactionCount: filteredExpenses.length,
+      budgetAnalysis
     };
   }, [expenses, period]);
 
   return analytics;
-};
-
-const getCategoryColor = (category) => {
-  switch (category) {
-    case 'NEEDS': return '#ef4444';
-    case 'WANTS': return '#f97316';
-    case 'SAVINGS': return '#3b82f6';
-    default: return '#6b7280';
-  }
 };
