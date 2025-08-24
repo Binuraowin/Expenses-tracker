@@ -2,13 +2,15 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   deleteDoc,
   query,
   where,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -23,7 +25,9 @@ export const recurringPaymentService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastPaidMonth: null,
-        nextDueDate: null
+        nextDueDate: null,
+        paidEarly: false,
+        earlyPaymentDate: null
       });
       return docRef.id;
     } catch (error) {
@@ -32,7 +36,7 @@ export const recurringPaymentService = {
     }
   },
 
-  // Get User Recurring Payments (Fixed the error)
+  // Get User Recurring Payments
   getUserRecurringPayments: async (userId) => {
     try {
       const q = query(
@@ -48,16 +52,29 @@ export const recurringPaymentService = {
         updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString() || doc.data().updatedAt
       }));
 
-      // Update status for each payment (fixed the 'this' reference error)
+      // Update status for each payment using batch
+      const batch = writeBatch(db);
       const updatedPayments = [];
+      let hasUpdates = false;
+
       for (const payment of payments) {
         const updatedStatus = calculatePaymentStatus(payment);
         if (updatedStatus !== payment.status) {
-          await recurringPaymentService.updateRecurringPayment(payment.id, { status: updatedStatus });
+          const paymentRef = doc(db, 'recurringPayments', payment.id);
+          batch.update(paymentRef, { 
+            status: updatedStatus,
+            updatedAt: serverTimestamp()
+          });
           updatedPayments.push({ ...payment, status: updatedStatus });
+          hasUpdates = true;
         } else {
           updatedPayments.push(payment);
         }
+      }
+
+      // Commit batch updates if any
+      if (hasUpdates) {
+        await batch.commit();
       }
 
       return updatedPayments;
@@ -81,21 +98,81 @@ export const recurringPaymentService = {
     }
   },
 
-  // Mark Payment as Paid
+  // Mark Payment as Paid with Early Payment Detection
   markAsPaid: async (paymentId, paymentDate = new Date().toISOString().split('T')[0]) => {
     try {
+      console.log('Starting markAsPaid for:', paymentId, paymentDate);
+      
+      // Get payment data first
+      const paymentRef = doc(db, 'recurringPayments', paymentId);
+      const paymentDoc = await getDoc(paymentRef);
+      
+      if (!paymentDoc.exists()) {
+        throw new Error('Payment not found');
+      }
+      
+      const paymentData = paymentDoc.data();
+      console.log('Payment data:', paymentData);
+      
       const paidDate = new Date(paymentDate);
       const paidMonth = paidDate.getFullYear() * 12 + paidDate.getMonth();
       
-      const paymentRef = doc(db, 'recurringPayments', paymentId);
+      // Simple early payment detection based on your use case
+      const now = new Date();
+      const currentDay = now.getDate();
+      
+      // If paying after getting salary (around 22nd-25th) for next month's bills
+      let isEarlyPayment = false;
+      if (currentDay >= 22 && paymentData.dueDate <= 15) {
+        // Paying next month's bills with this month's salary
+        isEarlyPayment = true;
+      }
+      
+      console.log('Early payment detection:', { currentDay, dueDate: paymentData.dueDate, isEarlyPayment });
+      
+      // Update the payment
       await updateDoc(paymentRef, {
         status: 'paid',
         lastPaid: paymentDate,
         lastPaidMonth: paidMonth,
+        paidEarly: isEarlyPayment,
+        earlyPaymentDate: isEarlyPayment ? paymentDate : null,
         updatedAt: serverTimestamp()
       });
+      
+      console.log(`Payment ${paymentId} marked as paid. Early: ${isEarlyPayment}`);
     } catch (error) {
       console.error('Error marking payment as paid:', error);
+      throw error;
+    }
+  },
+
+  // End Month and Start Next
+  endMonthAndStartNext: async (userId) => {
+    try {
+      const q = query(
+        collection(db, 'recurringPayments'),
+        where('userId', '==', userId)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const batch = writeBatch(db);
+      const currentMonth = new Date().getFullYear() * 100 + (new Date().getMonth() + 1);
+      
+      querySnapshot.docs.forEach(docSnapshot => {
+        batch.update(docSnapshot.ref, {
+          status: 'pending',
+          lastPaidMonth: currentMonth,
+          paidEarly: false,
+          earlyPaymentDate: null,
+          updatedAt: serverTimestamp()
+        });
+      });
+      
+      await batch.commit();
+      console.log('Month ended and next month started - all payments reset');
+    } catch (error) {
+      console.error('Error ending month:', error);
       throw error;
     }
   },
@@ -103,7 +180,8 @@ export const recurringPaymentService = {
   // Delete Recurring Payment
   deleteRecurringPayment: async (paymentId) => {
     try {
-      await deleteDoc(doc(db, 'recurringPayments', paymentId));
+      const paymentRef = doc(db, 'recurringPayments', paymentId);
+      await deleteDoc(paymentRef);
     } catch (error) {
       console.error('Error deleting recurring payment:', error);
       throw error;
@@ -111,7 +189,7 @@ export const recurringPaymentService = {
   }
 };
 
-// Helper function (moved outside the object to fix 'this' reference error)
+// Helper function for payment status calculation
 const calculatePaymentStatus = (payment) => {
   const now = new Date();
   const currentMonth = now.getFullYear() * 12 + now.getMonth();

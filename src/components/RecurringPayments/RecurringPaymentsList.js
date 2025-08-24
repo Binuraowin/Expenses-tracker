@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useRecurringPayments } from '../../hooks/useRecurringPayments';
+import { recurringPaymentService } from '../../services/recurringPayments';
+import { useAuth } from '../../hooks/useAuth';
 import { EXPENSE_CATEGORIES } from '../../utils/constants';
-import { CheckCircle, Clock, AlertTriangle, XCircle, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, XCircle, Plus, Trash2, RefreshCw, Calendar } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
 import RecurringPaymentForm from './RecurringPaymentForm';
 
 const RecurringPaymentsList = () => {
+  const { user } = useAuth();
   const { recurringPayments, markAsPaid, deleteRecurringPayment, loading, loadRecurringPayments } = useRecurringPayments();
   const [showForm, setShowForm] = useState(false);
   const [processingPayments, setProcessingPayments] = useState(new Set());
@@ -95,6 +98,18 @@ const RecurringPaymentsList = () => {
     }
   };
 
+  const handleEndMonth = async () => {
+    if (window.confirm('End this month and start next? This will reset all payments to pending status.')) {
+      try {
+        await recurringPaymentService.endMonthAndStartNext(user.uid);
+        await loadRecurringPayments();
+        alert('Month ended successfully! All payments reset for next month.');
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+  };
+
   const pendingTotal = recurringPayments
     .filter(payment => payment.status === 'pending' || payment.status === 'overdue')
     .reduce((sum, payment) => sum + payment.amount, 0);
@@ -143,6 +158,14 @@ const RecurringPaymentsList = () => {
               <Plus className="w-4 h-4 mr-2" />
               Add Recurring
             </Button>
+            <Button
+              onClick={handleEndMonth}
+              variant="primary"
+              size="sm"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              End Month & Start Next
+            </Button>
           </div>
         </div>
 
@@ -163,7 +186,7 @@ const RecurringPaymentsList = () => {
             </div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
-            <div className="text-green-800 text-sm font-medium">Paid This Month</div>
+            <div className="text-green-800 text-sm font-medium">Paid This Cycle</div>
             <div className="text-2xl font-bold text-green-900">Rs. {paidTotal.toLocaleString()}</div>
             <div className="text-xs text-green-600 mt-1">
               {recurringPayments.filter(p => p.status === 'paid').length} payments
@@ -178,21 +201,21 @@ const RecurringPaymentsList = () => {
           </div>
         </div>
 
-        {/* Monthly Cycle Explanation */}
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <div className="flex items-start space-x-2">
+        {/* Salary Cycle Explanation */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg mb-6 border border-blue-200">
+          <div className="flex items-start space-x-3">
             <AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5" />
             <div>
-              <h4 className="font-medium text-blue-900">Monthly Cycle Status</h4>
+              <h4 className="font-medium text-blue-900">Salary Cycle Management</h4>
               <p className="text-sm text-blue-700 mt-1">
-                Payments automatically reset to "Pending" each month. Once paid, they remain "Paid" until the next billing cycle.
-                Overdue payments are those past their due date for the current month.
+                Perfect for mid-month salary earners! Click "End Month & Start Next" when you receive your salary to reset all payment statuses. 
+                Pay next month's bills early and they'll be marked as "PAID EARLY" for easy tracking.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Payments List - THIS WAS MISSING */}
+        {/* Payments List */}
         {recurringPayments.length === 0 ? (
           <div className="text-center py-12">
             <RefreshCw className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -225,6 +248,14 @@ const RecurringPaymentsList = () => {
                   <div>
                     <div className="flex items-center space-x-2">
                       <h3 className="font-medium text-gray-800">{payment.description}</h3>
+                      
+                      {/* Early Payment Badge */}
+                      {payment.paidEarly && (
+                        <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+                          PAID EARLY
+                        </span>
+                      )}
+                      
                       {isOverdue(payment) && (
                         <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
                           OVERDUE

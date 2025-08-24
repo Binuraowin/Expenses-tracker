@@ -3,15 +3,15 @@ import { useExpenses } from '../../hooks/useExpenses';
 import { formatCurrency, formatDate } from '../../utils/dateUtils';
 import { EXPENSE_MAIN_CATEGORIES } from '../../utils/constants';
 import { exportMonthlyDataToExcel } from '../../utils/excelExport';
-import { DollarSign, Trash2, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { DollarSign, Trash2, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight, Download, AlertTriangle, Clock } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
 
 const ExpenseList = () => {
-const { expenses, deleteExpense } = useExpenses();
+  const { expenses, deleteExpense } = useExpenses();
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'salary'
   const [exporting, setExporting] = useState(false);
-
 
   const handleExportToExcel = async () => {
     setExporting(true);
@@ -24,14 +24,32 @@ const { expenses, deleteExpense } = useExpenses();
       setExporting(false);
     }
   };
-  // Filter expenses by selected month
+
+  // Find salary dates for salary period view
+  const salaryTransactions = expenses.filter(exp => exp.isSalary && exp.type === 'income');
+  const currentSalaryDate = salaryTransactions.length > 0 ? 
+    salaryTransactions.sort((a, b) => new Date(b.date) - new Date(a.date))[0].date : null;
+
+  // Filter expenses by selected month or salary period
   const filteredExpenses = useMemo(() => {
+    if (viewMode === 'salary' && currentSalaryDate) {
+      const salaryDate = new Date(currentSalaryDate);
+      const nextSalaryDate = new Date(salaryDate);
+      nextSalaryDate.setMonth(nextSalaryDate.getMonth() + 1); // Assume monthly salary
+      
+      return expenses.filter(expense => {
+        const expenseDate = new Date(expense.date || expense.createdAt);
+        return expenseDate >= salaryDate && expenseDate < nextSalaryDate;
+      });
+    }
+    
+    // Calendar month view
     return expenses.filter(expense => {
       const expenseDate = new Date(expense.date || expense.createdAt);
       const expenseMonth = expenseDate.toISOString().slice(0, 7);
       return expenseMonth === selectedMonth;
     });
-  }, [expenses, selectedMonth]);
+  }, [expenses, selectedMonth, viewMode, currentSalaryDate]);
 
   const sortedExpenses = [...filteredExpenses].sort((a, b) => 
     new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
@@ -91,23 +109,31 @@ const { expenses, deleteExpense } = useExpenses();
     month: 'long' 
   });
 
+  const viewTitle = viewMode === 'salary' && currentSalaryDate 
+    ? `Salary Period (${new Date(currentSalaryDate).toLocaleDateString()})`
+    : monthName;
+
   return (
     <div className="space-y-6">
       {/* Month Navigation */}
-     <Card>
+      <Card>
         <div className="flex justify-between items-center">
-          <Button
-            onClick={() => navigateMonth('prev')}
-            variant="secondary"
-            size="sm"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Prev Month
-          </Button>
+          <div className="flex items-center space-x-2">
+            {viewMode === 'calendar' && (
+              <Button
+                onClick={() => navigateMonth('prev')}
+                variant="secondary"
+                size="sm"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Prev Month
+              </Button>
+            )}
+          </div>
           
           <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-800">{monthName}</h2>
-            {isCurrentMonth && (
+            <h2 className="text-xl font-bold text-gray-800">{viewTitle}</h2>
+            {isCurrentMonth && viewMode === 'calendar' && (
               <span className="text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
                 Current Month
               </span>
@@ -115,6 +141,25 @@ const { expenses, deleteExpense } = useExpenses();
           </div>
           
           <div className="flex space-x-2">
+            {/* View Toggle Buttons */}
+            <Button
+              onClick={() => setViewMode('calendar')}
+              variant={viewMode === 'calendar' ? 'primary' : 'secondary'}
+              size="sm"
+            >
+              <Calendar className="w-4 h-4 mr-1" />
+              Calendar
+            </Button>
+            <Button
+              onClick={() => setViewMode('salary')}
+              variant={viewMode === 'salary' ? 'primary' : 'secondary'}
+              size="sm"
+              disabled={!currentSalaryDate}
+            >
+              <DollarSign className="w-4 h-4 mr-1" />
+              Salary Period
+            </Button>
+            
             <Button
               onClick={handleExportToExcel}
               variant="secondary"
@@ -125,24 +170,45 @@ const { expenses, deleteExpense } = useExpenses();
               {exporting ? 'Exporting...' : 'Export Excel'}
             </Button>
             
-            <Button
-              onClick={() => navigateMonth('next')}
-              variant="secondary"
-              size="sm"
-              disabled={selectedMonth >= new Date().toISOString().slice(0, 7)}
-            >
-              Next Month
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+            {viewMode === 'calendar' && (
+              <Button
+                onClick={() => navigateMonth('next')}
+                variant="secondary"
+                size="sm"
+                disabled={selectedMonth >= new Date().toISOString().slice(0, 7)}
+              >
+                Next Month
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            )}
           </div>
         </div>
       </Card>
+
+      {/* View Mode Explanation */}
+      {viewMode === 'salary' && (
+        <Card className="bg-blue-50 border border-blue-200">
+          <div className="flex items-start space-x-2">
+            <DollarSign className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-blue-900">Salary Period View</h4>
+              <p className="text-sm text-blue-700 mt-1">
+                Showing all transactions funded by your most recent salary period. 
+                This includes early payments made for future months.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Monthly Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-green-50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-600 text-sm font-medium">Monthly Income</p>
+              <p className="text-green-600 text-sm font-medium">
+                {viewMode === 'salary' ? 'Period Income' : 'Monthly Income'}
+              </p>
               <p className="text-2xl font-bold text-green-900">{formatCurrency(monthlyIncome)}</p>
             </div>
             <TrendingUp className="w-8 h-8 text-green-500" />
@@ -152,7 +218,9 @@ const { expenses, deleteExpense } = useExpenses();
         <Card className="bg-red-50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-600 text-sm font-medium">Monthly Expenses</p>
+              <p className="text-red-600 text-sm font-medium">
+                {viewMode === 'salary' ? 'Period Expenses' : 'Monthly Expenses'}
+              </p>
               <p className="text-2xl font-bold text-red-900">{formatCurrency(monthlyExpenses)}</p>
             </div>
             <TrendingDown className="w-8 h-8 text-red-500" />
@@ -195,20 +263,27 @@ const { expenses, deleteExpense } = useExpenses();
           </div>
           
           {recurringExpenses.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No recurring transactions this month</p>
+            <p className="text-gray-500 text-center py-4">No recurring transactions this period</p>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {recurringExpenses.map((expense) => {
                 const categoryInfo = getCategoryInfo(expense.category, expense.type);
                 return (
-                  <div key={expense.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div key={expense.id} className={`flex items-center justify-between p-3 rounded-lg ${expense.paidEarly ? 'bg-orange-50 border border-orange-200' : 'bg-blue-50'}`}>
                     <div className="flex items-center space-x-3">
                       <div 
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: categoryInfo.color }}
                       ></div>
                       <div>
-                        <h4 className="font-medium text-gray-800">{expense.description}</h4>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-medium text-gray-800">{expense.description}</h4>
+                          {expense.paidEarly && (
+                            <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
+                              EARLY
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500">{formatDate(expense.date || expense.createdAt)}</p>
                       </div>
                     </div>
@@ -236,7 +311,7 @@ const { expenses, deleteExpense } = useExpenses();
           </div>
           
           {regularExpenses.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No one-time transactions this month</p>
+            <p className="text-gray-500 text-center py-4">No one-time transactions this period</p>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {regularExpenses.map((expense) => {
@@ -249,7 +324,14 @@ const { expenses, deleteExpense } = useExpenses();
                         style={{ backgroundColor: categoryInfo.color }}
                       ></div>
                       <div>
-                        <h4 className="font-medium text-gray-800">{expense.description}</h4>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-medium text-gray-800">{expense.description}</h4>
+                          {expense.isSalary && (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                              SALARY
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500">{formatDate(expense.date || expense.createdAt)}</p>
                       </div>
                     </div>
@@ -270,7 +352,7 @@ const { expenses, deleteExpense } = useExpenses();
       {/* All Transactions List */}
       <Card>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">All Transactions - {monthName}</h2>
+          <h2 className="text-xl font-bold text-gray-800">All Transactions - {viewTitle}</h2>
           <div className="text-sm text-gray-500">
             {sortedExpenses.length} transactions
           </div>
@@ -279,7 +361,7 @@ const { expenses, deleteExpense } = useExpenses();
         {sortedExpenses.length === 0 ? (
           <div className="text-center py-12">
             <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No transactions recorded for {monthName}</p>
+            <p className="text-gray-500">No transactions recorded for this period</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -290,7 +372,7 @@ const { expenses, deleteExpense } = useExpenses();
                   key={expense.id} 
                   className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors ${
                     expense.type === 'income' ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-red-500'
-                  } ${expense.isRecurring ? 'bg-blue-50' : ''}`}
+                  } ${expense.isRecurring ? (expense.paidEarly ? 'bg-orange-50' : 'bg-blue-50') : ''}`}
                 >
                   <div className="flex items-center space-x-4">
                     <div 
@@ -310,11 +392,26 @@ const { expenses, deleteExpense } = useExpenses();
                           {expense.type === 'income' ? 'Income' : 'Expense'}
                         </span>
 
+                        {/* Salary Badge */}
+                        {expense.isSalary && (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                            SALARY
+                          </span>
+                        )}
+
                         {/* Recurring Badge */}
                         {expense.isRecurring && (
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full flex items-center">
                             <RefreshCw className="w-3 h-3 mr-1" />
                             Recurring
+                          </span>
+                        )}
+
+                        {/* Early Payment Badge */}
+                        {expense.paidEarly && (
+                          <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full flex items-center font-medium">
+                            <Clock className="w-3 h-3 mr-1" />
+                            PAID EARLY
                           </span>
                         )}
 

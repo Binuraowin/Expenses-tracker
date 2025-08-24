@@ -12,7 +12,8 @@ const ExpenseForm = ({ onSuccess }) => {
     amount: '',
     category: 'NEEDS',
     date: new Date().toISOString().split('T')[0],
-    type: 'expense'
+    type: 'expense',
+    isSalary: false
   });
   const [loading, setLoading] = useState(false);
   const { addExpense } = useExpenses();
@@ -30,7 +31,8 @@ const ExpenseForm = ({ onSuccess }) => {
         amount: '',
         category: 'NEEDS',
         date: new Date().toISOString().split('T')[0],
-        type: 'expense'
+        type: 'expense',
+        isSalary: false
       });
       onSuccess?.();
     } catch (error) {
@@ -41,9 +43,10 @@ const ExpenseForm = ({ onSuccess }) => {
   };
 
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
@@ -92,6 +95,22 @@ const ExpenseForm = ({ onSuccess }) => {
               <option value="expense">Expense (-)</option>
               <option value="income">Income (+)</option>
             </select>
+            
+            {/* Salary checkbox when income is selected */}
+            {formData.type === 'income' && (
+              <div className="mt-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="isSalary"
+                    checked={formData.isSalary}
+                    onChange={handleChange}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">This is my salary</span>
+                </label>
+              </div>
+            )}
           </div>
 
           {formData.type === 'expense' && (

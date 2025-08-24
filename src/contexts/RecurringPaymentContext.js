@@ -87,9 +87,15 @@ export const RecurringPaymentProvider = ({ children }) => {
 
       const validPaymentDate = paymentDate || new Date().toISOString().split('T')[0];
       console.log('Marking payment as paid:', paymentId, validPaymentDate);
-
-      // Mark as paid in recurring payments
+      
+      // Mark as paid with early payment detection
       await recurringPaymentService.markAsPaid(paymentId, validPaymentDate);
+      
+      // Calculate early payment status
+      const paidDate = new Date(validPaymentDate);
+      const currentMonth = new Date().getFullYear() * 12 + new Date().getMonth();
+      const paidMonth = paidDate.getFullYear() * 12 + paidDate.getMonth();
+      const isEarlyPayment = paidMonth < currentMonth;
       
       // For income transactions, don't use budget category mapping
       let finalCategory;
@@ -110,7 +116,8 @@ export const RecurringPaymentProvider = ({ children }) => {
           date: validPaymentDate,
           type: payment.type || 'expense',
           isRecurring: true,
-          recurringId: paymentId
+          recurringId: paymentId,
+          paidEarly: isEarlyPayment
         });
         console.log('Successfully added to expenses');
       } catch (expenseError) {
@@ -120,7 +127,12 @@ export const RecurringPaymentProvider = ({ children }) => {
       // Update local state
       setRecurringPayments(prev => prev.map(p => 
         p.id === paymentId 
-          ? { ...p, status: 'paid', lastPaid: validPaymentDate }
+          ? { 
+              ...p, 
+              status: 'paid', 
+              lastPaid: validPaymentDate,
+              paidEarly: isEarlyPayment 
+            }
           : p
       ));
       console.log('Successfully marked payment as paid');
@@ -156,19 +168,17 @@ export const RecurringPaymentProvider = ({ children }) => {
     );
   };
 
-
-
-const value = useMemo(() => ({
-  recurringPayments,
-  loading,
-  addRecurringPayment,
-  updateRecurringPayment,
-  markAsPaid,
-  deleteRecurringPayment,
-  loadRecurringPayments,
-  getMonthlyRecurringTotal,
-  getPendingRecurringPayments
-}), [recurringPayments, loading]); // Only re-create when these change
+  const value = useMemo(() => ({
+    recurringPayments,
+    loading,
+    addRecurringPayment,
+    updateRecurringPayment,
+    markAsPaid,
+    deleteRecurringPayment,
+    loadRecurringPayments,
+    getMonthlyRecurringTotal,
+    getPendingRecurringPayments
+  }), [recurringPayments, loading]); // Only re-create when these change
 
   return (
     <RecurringPaymentContext.Provider value={value}>
