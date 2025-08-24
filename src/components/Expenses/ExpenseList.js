@@ -3,7 +3,7 @@ import { useExpenses } from '../../hooks/useExpenses';
 import { formatCurrency, formatDate } from '../../utils/dateUtils';
 import { EXPENSE_MAIN_CATEGORIES } from '../../utils/constants';
 import { exportMonthlyDataToExcel } from '../../utils/excelExport';
-import { DollarSign, Trash2, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight, Download, AlertTriangle, Clock } from 'lucide-react';
+import { DollarSign, Trash2, RefreshCw, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight, Download, Clock } from 'lucide-react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
 
